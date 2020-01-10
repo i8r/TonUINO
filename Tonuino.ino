@@ -1,3 +1,5 @@
+#include "configuration.h"
+
 #include <DFMiniMp3.h>
 #include <EEPROM.h>
 #include <JC_Button.h>
@@ -64,7 +66,57 @@ class Mp3Notify {
     }
 };
 
+class ShutdownTimer {
+  private:
+    unsigned int pin;
+    unsigned long time;
+    unsigned long timeOut = SHUTDOWN_TIMEOUT_IN_SECOUNDS * 1000l;
+  public:
+    ShutdownTimer(unsigned int pin) {
+      pinMode(pin, OUTPUT);
+      digitalWrite(pin, LOW);
+      this-> pin = pin;
+      resetTimer();
+    }
+    void resetTimer() {
+      time = millis();
+    }
+    void shutdownIfTimerExpired() {
+      if (millis() - time > timeOut) {
+        digitalWrite(pin, HIGH);
+      }
+    }
+};
+
+ShutdownTimer shutdownTimer = ShutdownTimer(A3);
+
 static DFMiniMp3<SoftwareSerial, Mp3Notify> mp3(mySoftwareSerial);
+
+class Mp3Facade {
+  private:
+    uint8_t volume = INITIAL_VOLUME;
+  public:
+    Mp3Facade() {
+    }
+    void setup() {
+      mp3.begin();
+      mp3.setVolume(volume);
+    }
+    void increaseVolume() {
+      if(volume < MAX_VOLUME) volume++;
+      mp3.setVolume(volume);
+      Serial.print("Volume increased to ");
+      Serial.println(volume);
+    }
+    void decreaseVolume() {
+      if(volume > MIN_VOLUME) volume--;
+      mp3.setVolume(volume);
+      Serial.print("Volume decreased to ");
+      Serial.println(volume);
+    }   
+};
+
+Mp3Facade mp3facade = Mp3Facade();
 
 // Leider kann das Modul keine Queue abspielen.
 static uint16_t _lastTrackFinished;
@@ -204,8 +256,7 @@ void setup() {
   pinMode(busyPin, INPUT);
 
   // DFPlayer Mini initialisieren
-  mp3.begin();
-  mp3.setVolume(15);
+  mp3facade.setup();
 
   // NFC Leser initialisieren
   SPI.begin();        // Init SPI bus
@@ -343,9 +394,15 @@ void handleNewCard() {
 }
 
 void loop() {
+  do {
+    if (isPlaying()) {
+      shutdownTimer.resetTimer();
+    }
+    shutdownTimer.shutdownIfTimerExpired();
     handleButtons();
   } while (!mfrc522.PICC_IsNewCardPresent());
   handleNewCard();
+  shutdownTimer.resetTimer();
 }
 
 int voiceMenu(int numberOfOptions, int startMessage, int messageOffset,

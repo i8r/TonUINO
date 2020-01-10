@@ -225,67 +225,64 @@ void setup() {
       EEPROM.write(i, 0);
     }
   }
-
 }
 
-void loop() {
-  do {
-    mp3.loop();
-    // Buttons werden nun über JS_Button gehandelt, dadurch kann jede Taste
-    // doppelt belegt werden
-    pauseButton.read();
-    upButton.read();
-    downButton.read();
+void handleButtons() {
+  mp3.loop();
+  // Buttons werden nun über JS_Button gehandelt, dadurch kann jede Taste
+  // doppelt belegt werden
+  pauseButton.read();
+  upButton.read();
+  downButton.read();
 
-    if (pauseButton.wasReleased()) {
-      if (ignorePauseButton == false) {
-        if (isPlaying())
-          mp3.pause();
-        else
-          mp3.start();
-      }
-      ignorePauseButton = false;
-    } else if (pauseButton.pressedFor(LONG_PRESS) &&
-               ignorePauseButton == false) {
+  if (pauseButton.wasReleased()) {
+    if (ignorePauseButton == false) {
       if (isPlaying())
-        mp3.playAdvertisement(currentTrack);
-      else {
-        knownCard = false;
-        mp3.playMp3FolderTrack(800);
-        Serial.println(F("Karte resetten..."));
-        resetCard();
-        mfrc522.PICC_HaltA();
-        mfrc522.PCD_StopCrypto1();
-      }
-      ignorePauseButton = true;
-    }
-
-    if (upButton.pressedFor(LONG_PRESS)) {
-      Serial.println(F("Volume Up"));
-      mp3.increaseVolume();
-      ignoreUpButton = true;
-    } else if (upButton.wasReleased()) {
-      if (!ignoreUpButton)
-        nextTrack(random(65536));
+        mp3.pause();
       else
-        ignoreUpButton = false;
+        mp3.start();
     }
-
-    if (downButton.pressedFor(LONG_PRESS)) {
-      Serial.println(F("Volume Down"));
-      mp3.decreaseVolume();
-      ignoreDownButton = true;
-    } else if (downButton.wasReleased()) {
-      if (!ignoreDownButton)
-        previousTrack();
-      else
-        ignoreDownButton = false;
+    ignorePauseButton = false;
+  } else if (pauseButton.pressedFor(LONG_PRESS) &&
+             ignorePauseButton == false) {
+    if (isPlaying())
+      mp3.playAdvertisement(currentTrack);
+    else {
+      knownCard = false;
+      mp3.playMp3FolderTrack(800);
+      Serial.println(F("Karte resetten..."));
+      resetCard();
+      mfrc522.PICC_HaltA();
+      mfrc522.PCD_StopCrypto1();
     }
-    // Ende der Buttons
-  } while (!mfrc522.PICC_IsNewCardPresent());
+    ignorePauseButton = true;
+  }
 
-  // RFID Karte wurde aufgelegt
+  if (upButton.pressedFor(LONG_PRESS)) {
+    Serial.println(F("Volume Up"));
+    mp3facade.increaseVolume();
+    ignoreUpButton = true;
+  } else if (upButton.wasReleased()) {
+    if (!ignoreUpButton)
+      nextTrack(random(65536));
+    else
+      ignoreUpButton = false;
+  }
 
+  if (downButton.pressedFor(LONG_PRESS)) {
+    Serial.println(F("Volume Down"));
+    mp3facade.decreaseVolume();
+    ignoreDownButton = true;
+  } else if (downButton.wasReleased()) {
+    if (!ignoreDownButton)
+      previousTrack();
+    else
+      ignoreDownButton = false;
+  }
+  // Ende der Buttons
+}
+
+void handleNewCard() {
   if (!mfrc522.PICC_ReadCardSerial())
     return;
 
@@ -345,8 +342,14 @@ void loop() {
   mfrc522.PCD_StopCrypto1();
 }
 
+void loop() {
+    handleButtons();
+  } while (!mfrc522.PICC_IsNewCardPresent());
+  handleNewCard();
+}
+
 int voiceMenu(int numberOfOptions, int startMessage, int messageOffset,
-              bool preview = false, int previewFromFolder = 0) {
+              bool preview, int previewFromFolder) {
   int returnValue = 0;
   if (startMessage != 0)
     mp3.playMp3FolderTrack(startMessage);
@@ -495,7 +498,7 @@ bool readCard(nfcTagObject *nfcTag) {
     returnValue = false;
     Serial.print(F("PCD_Authenticate() failed: "));
     Serial.println(mfrc522.GetStatusCodeName(status));
-    return;
+    return returnValue;
   }
 
   // Show the whole sector as it currently is

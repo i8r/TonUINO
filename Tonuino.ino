@@ -31,37 +31,37 @@ bool knownCard = false;
 // its member methods will get called
 //
 class Mp3Notify {
-public:
-  static void OnError(uint16_t errorCode) {
-    // see DfMp3_Error for code meaning
-    Serial.println();
-    Serial.print("Com Error ");
-    Serial.println(errorCode);
-  }
-  static void OnPlayFinished(uint16_t track) {
-    Serial.print("Track beendet");
-    Serial.println(track);
-    delay(100);
-    nextTrack(track);
-  }
-  static void OnCardOnline(uint16_t code) {
-    Serial.println(F("SD Karte online "));
-  }
-  static void OnCardInserted(uint16_t code) {
-    Serial.println(F("SD Karte bereit "));
-  }
-  static void OnCardRemoved(uint16_t code) {
-    Serial.println(F("SD Karte entfernt "));
-  }
-  static void OnUsbOnline(uint16_t code) {
+  public:
+    static void OnError(uint16_t errorCode) {
+      // see DfMp3_Error for code meaning
+      Serial.println();
+      Serial.print("Com Error ");
+      Serial.println(errorCode);
+    }
+    static void OnPlayFinished(uint16_t track) {
+      Serial.print("Track beendet");
+      Serial.println(track);
+      delay(100);
+      nextTrack(track);
+    }
+    static void OnCardOnline(uint16_t code) {
+      Serial.println(F("SD Karte online "));
+    }
+    static void OnCardInserted(uint16_t code) {
+      Serial.println(F("SD Karte bereit "));
+    }
+    static void OnCardRemoved(uint16_t code) {
+      Serial.println(F("SD Karte entfernt "));
+    }
+    static void OnUsbOnline(uint16_t code) {
       Serial.println(F("USB online "));
-  }
-  static void OnUsbInserted(uint16_t code) {
+    }
+    static void OnUsbInserted(uint16_t code) {
       Serial.println(F("USB bereit "));
-  }
-  static void OnUsbRemoved(uint16_t code) {
-    Serial.println(F("USB entfernt "));
-  }
+    }
+    static void OnUsbRemoved(uint16_t code) {
+      Serial.println(F("USB entfernt "));
+    }
 };
 
 static DFMiniMp3<SoftwareSerial, Mp3Notify> mp3(mySoftwareSerial);
@@ -71,17 +71,17 @@ static uint16_t _lastTrackFinished;
 static void nextTrack(uint16_t track) {
   if (track == _lastTrackFinished) {
     return;
-   }
-   _lastTrackFinished = track;
-   
-   if (knownCard == false)
+  }
+  _lastTrackFinished = track;
+
+  if (knownCard == false)
     // Wenn eine neue Karte angelernt wird soll das Ende eines Tracks nicht
     // verarbeitet werden
     return;
 
   if (myCard.mode == 1) {
     Serial.println(F("Hörspielmodus ist aktiv -> keinen neuen Track spielen"));
-//    mp3.sleep(); // Je nach Modul kommt es nicht mehr zurück aus dem Sleep!
+    //    mp3.sleep(); // Je nach Modul kommt es nicht mehr zurück aus dem Sleep!
   }
   if (myCard.mode == 2) {
     if (currentTrack != numTracksInFolder) {
@@ -89,22 +89,22 @@ static void nextTrack(uint16_t track) {
       mp3.playFolderTrack(myCard.folder, currentTrack);
       Serial.print(F("Albummodus ist aktiv -> nächster Track: "));
       Serial.print(currentTrack);
-    } else 
-//      mp3.sleep();   // Je nach Modul kommt es nicht mehr zurück aus dem Sleep!
+    } else
+      //      mp3.sleep();   // Je nach Modul kommt es nicht mehr zurück aus dem Sleep!
     { }
   }
   if (myCard.mode == 3) {
     uint16_t oldTrack = currentTrack;
     currentTrack = random(1, numTracksInFolder + 1);
     if (currentTrack == oldTrack)
-      currentTrack = currentTrack == numTracksInFolder ? 1 : currentTrack+1;
+      currentTrack = currentTrack == numTracksInFolder ? 1 : currentTrack + 1;
     Serial.print(F("Party Modus ist aktiv -> zufälligen Track spielen: "));
     Serial.println(currentTrack);
     mp3.playFolderTrack(myCard.folder, currentTrack);
   }
   if (myCard.mode == 4) {
     Serial.println(F("Einzel Modus aktiv -> Strom sparen"));
-//    mp3.sleep();      // Je nach Modul kommt es nicht mehr zurück aus dem Sleep!
+    //    mp3.sleep();      // Je nach Modul kommt es nicht mehr zurück aus dem Sleep!
   }
   if (myCard.mode == 5) {
     if (currentTrack != numTracksInFolder) {
@@ -116,7 +116,7 @@ static void nextTrack(uint16_t track) {
       // Fortschritt im EEPROM abspeichern
       EEPROM.write(myCard.folder, currentTrack);
     } else {
-//      mp3.sleep();  // Je nach Modul kommt es nicht mehr zurück aus dem Sleep!
+      //      mp3.sleep();  // Je nach Modul kommt es nicht mehr zurück aus dem Sleep!
       // Fortschritt zurück setzen
       EEPROM.write(myCard.folder, 1);
     }
@@ -182,12 +182,14 @@ bool ignoreDownButton = false;
 
 uint8_t numberOfCards = 0;
 
-bool isPlaying() { return !digitalRead(busyPin); }
+bool isPlaying() {
+  return !digitalRead(busyPin);
+}
 
 void setup() {
 
   Serial.begin(115200); // Es gibt ein paar Debug Ausgaben über die serielle
-                        // Schnittstelle
+  // Schnittstelle
   randomSeed(analogRead(A0)); // Zufallsgenerator initialisieren
 
   Serial.println(F("TonUINO Version 2.0"));
@@ -209,7 +211,7 @@ void setup() {
   SPI.begin();        // Init SPI bus
   mfrc522.PCD_Init(); // Init MFRC522
   mfrc522
-      .PCD_DumpVersionToSerial(); // Show details of PCD - MFRC522 Card Reader
+  .PCD_DumpVersionToSerial(); // Show details of PCD - MFRC522 Card Reader
   for (byte i = 0; i < 6; i++) {
     key.keyByte[i] = 0xFF;
   }
@@ -313,14 +315,14 @@ void loop() {
       // Party Modus: Ordner in zufälliger Reihenfolge
       if (myCard.mode == 3) {
         Serial.println(
-            F("Party Modus -> Ordner in zufälliger Reihenfolge wiedergeben"));
+          F("Party Modus -> Ordner in zufälliger Reihenfolge wiedergeben"));
         currentTrack = random(1, numTracksInFolder + 1);
         mp3.playFolderTrack(myCard.folder, currentTrack);
       }
       // Einzel Modus: eine Datei aus dem Ordner abspielen
       if (myCard.mode == 4) {
         Serial.println(
-            F("Einzel Modus -> eine Datei aus dem Odrdner abspielen"));
+          F("Einzel Modus -> eine Datei aus dem Odrdner abspielen"));
         currentTrack = myCard.special;
         mp3.playFolderTrack(myCard.folder, currentTrack);
       }
@@ -390,7 +392,7 @@ int voiceMenu(int numberOfOptions, int startMessage, int messageOffset,
       } else
         ignoreUpButton = false;
     }
-    
+
     if (downButton.pressedFor(LONG_PRESS)) {
       returnValue = max(returnValue - 10, 1);
       mp3.playMp3FolderTrack(messageOffset + returnValue);
@@ -456,7 +458,7 @@ void setupCard() {
   myCard.mode = voiceMenu(6, 310, 310);
 
   // Hörbuchmodus -> Fortschritt im EEPROM auf 1 setzen
-  EEPROM.write(myCard.folder,1);
+  EEPROM.write(myCard.folder, 1);
 
   // Einzelmodus -> Datei abfragen
   if (myCard.mode == 4)
@@ -488,7 +490,7 @@ bool readCard(nfcTagObject *nfcTag) {
   // Authenticate using key A
   Serial.println(F("Authenticating using key A..."));
   status = (MFRC522::StatusCode)mfrc522.PCD_Authenticate(
-      MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &key, &(mfrc522.uid));
+             MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &key, &(mfrc522.uid));
   if (status != MFRC522::STATUS_OK) {
     returnValue = false;
     Serial.print(F("PCD_Authenticate() failed: "));
@@ -536,12 +538,13 @@ bool readCard(nfcTagObject *nfcTag) {
 void writeCard(nfcTagObject nfcTag) {
   MFRC522::PICC_Type mifareType;
   byte buffer[16] = {0x13, 0x37, 0xb3, 0x47, // 0x1337 0xb347 magic cookie to
-                                             // identify our nfc tags
+                     // identify our nfc tags
                      0x01,                   // version 1
                      nfcTag.folder,          // the folder picked by the user
                      nfcTag.mode,    // the playback mode picked by the user
                      nfcTag.special, // track or function for admin cards
-                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+                    };
 
   byte size = sizeof(buffer);
 
@@ -550,7 +553,7 @@ void writeCard(nfcTagObject nfcTag) {
   // Authenticate using key B
   Serial.println(F("Authenticating again using key B..."));
   status = (MFRC522::StatusCode)mfrc522.PCD_Authenticate(
-      MFRC522::PICC_CMD_MF_AUTH_KEY_B, trailerBlock, &key, &(mfrc522.uid));
+             MFRC522::PICC_CMD_MF_AUTH_KEY_B, trailerBlock, &key, &(mfrc522.uid));
   if (status != MFRC522::STATUS_OK) {
     Serial.print(F("PCD_Authenticate() failed: "));
     Serial.println(mfrc522.GetStatusCodeName(status));
@@ -568,7 +571,7 @@ void writeCard(nfcTagObject nfcTag) {
   if (status != MFRC522::STATUS_OK) {
     Serial.print(F("MIFARE_Write() failed: "));
     Serial.println(mfrc522.GetStatusCodeName(status));
-      mp3.playMp3FolderTrack(401);
+    mp3.playMp3FolderTrack(401);
   }
   else
     mp3.playMp3FolderTrack(400);
@@ -577,8 +580,8 @@ void writeCard(nfcTagObject nfcTag) {
 }
 
 /**
- * Helper routine to dump a byte array as hex values to Serial.
- */
+   Helper routine to dump a byte array as hex values to Serial.
+*/
 void dump_byte_array(byte *buffer, byte bufferSize) {
   for (byte i = 0; i < bufferSize; i++) {
     Serial.print(buffer[i] < 0x10 ? " 0" : " ");

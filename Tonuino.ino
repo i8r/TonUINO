@@ -88,7 +88,7 @@ class ShutdownTimer {
     }
 };
 
-ShutdownTimer shutdownTimer = ShutdownTimer(A3);
+ShutdownTimer shutdownTimer = ShutdownTimer(PIN_SHUTDOWN);
 
 static DFMiniMp3<SoftwareSerial, Mp3Notify> mp3(mySoftwareSerial);
 
@@ -103,17 +103,17 @@ class Mp3Facade {
       mp3.setVolume(volume);
     }
     void increaseVolume() {
-      if(volume < MAX_VOLUME) volume++;
+      if (volume < MAX_VOLUME) volume++;
       mp3.setVolume(volume);
       Serial.print("Volume increased to ");
       Serial.println(volume);
     }
     void decreaseVolume() {
-      if(volume > MIN_VOLUME) volume--;
+      if (volume > MIN_VOLUME) volume--;
       mp3.setVolume(volume);
       Serial.print("Volume decreased to ");
       Serial.println(volume);
-    }   
+    }
 };
 
 Mp3Facade mp3facade = Mp3Facade();
@@ -218,21 +218,18 @@ byte blockAddr = 4;
 byte trailerBlock = 7;
 MFRC522::StatusCode status;
 
-#define buttonPause A0
-#define buttonUp A1
-#define buttonDown A2
 #define busyPin 4
 
 #define LONG_PRESS 1000
 
-Button pauseButton(buttonPause);
-Button upButton(buttonUp);
-Button downButton(buttonDown);
+Button pauseButton(PIN_PAUSE_BUTTON);
+Button nextButton(PIN_NEXT_BUTTON);
+Button prevButton(PIN_PREV_BUTTON);
+Button volumeUpButton(PIN_VOLUME_UP_BUTTON);
+Button volumeDownButton(PIN_VOLUME_DOWN_BUTTON);
 bool ignorePauseButton = false;
-bool ignoreUpButton = false;
-bool ignoreDownButton = false;
-
-uint8_t numberOfCards = 0;
+bool ignoreNextButton = false;
+bool ignorePrevButton = false;
 
 bool isPlaying() {
   return !digitalRead(busyPin);
@@ -248,9 +245,11 @@ void setup() {
   Serial.println(F("(c) Thorsten Voß"));
 
   // Knöpfe mit PullUp
-  pinMode(buttonPause, INPUT_PULLUP);
-  pinMode(buttonUp, INPUT_PULLUP);
-  pinMode(buttonDown, INPUT_PULLUP);
+  pinMode(PIN_PAUSE_BUTTON, INPUT_PULLUP);
+  pinMode(PIN_NEXT_BUTTON, INPUT_PULLUP);
+  pinMode(PIN_PREV_BUTTON, INPUT_PULLUP);
+  pinMode(PIN_VOLUME_UP_BUTTON, INPUT_PULLUP);
+  pinMode(PIN_VOLUME_DOWN_BUTTON, INPUT_PULLUP);
 
   // Busy Pin
   pinMode(busyPin, INPUT);
@@ -261,16 +260,15 @@ void setup() {
   // NFC Leser initialisieren
   SPI.begin();        // Init SPI bus
   mfrc522.PCD_Init(); // Init MFRC522
-  mfrc522
-  .PCD_DumpVersionToSerial(); // Show details of PCD - MFRC522 Card Reader
+  mfrc522.PCD_DumpVersionToSerial(); // Show details of PCD - MFRC522 Card Reader
   for (byte i = 0; i < 6; i++) {
     key.keyByte[i] = 0xFF;
   }
 
   // RESET --- ALLE DREI KNÖPFE BEIM STARTEN GEDRÜCKT HALTEN -> alle bekannten
   // Karten werden gelöscht
-  if (digitalRead(buttonPause) == LOW && digitalRead(buttonUp) == LOW &&
-      digitalRead(buttonDown) == LOW) {
+  if (digitalRead(PIN_PAUSE_BUTTON) == LOW && digitalRead(PIN_NEXT_BUTTON) == LOW &&
+      digitalRead(PIN_PREV_BUTTON) == LOW) {
     Serial.println(F("Reset -> EEPROM wird gelöscht"));
     for (int i = 0; i < EEPROM.length(); i++) {
       EEPROM.write(i, 0);
@@ -283,8 +281,10 @@ void handleButtons() {
   // Buttons werden nun über JS_Button gehandelt, dadurch kann jede Taste
   // doppelt belegt werden
   pauseButton.read();
-  upButton.read();
-  downButton.read();
+  nextButton.read();
+  prevButton.read();
+  volumeUpButton.read();
+  volumeDownButton.read();
 
   if (pauseButton.wasReleased()) {
     if (ignorePauseButton == false) {
@@ -309,28 +309,29 @@ void handleButtons() {
     ignorePauseButton = true;
   }
 
-  if (upButton.pressedFor(LONG_PRESS)) {
-    Serial.println(F("Volume Up"));
-    mp3facade.increaseVolume();
-    ignoreUpButton = true;
-  } else if (upButton.wasReleased()) {
-    if (!ignoreUpButton)
+  if (nextButton.wasReleased()) {
+    if (!ignoreNextButton)
       nextTrack(random(65536));
     else
-      ignoreUpButton = false;
+      ignoreNextButton = false;
   }
 
-  if (downButton.pressedFor(LONG_PRESS)) {
-    Serial.println(F("Volume Down"));
-    mp3facade.decreaseVolume();
-    ignoreDownButton = true;
-  } else if (downButton.wasReleased()) {
-    if (!ignoreDownButton)
+  if (prevButton.wasReleased()) {
+    if (!ignorePrevButton)
       previousTrack();
     else
-      ignoreDownButton = false;
+      ignorePrevButton = false;
   }
-  // Ende der Buttons
+
+  if (volumeUpButton.isPressed()) {
+    Serial.println(F("Volume Up"));
+    mp3facade.increaseVolume();
+  }
+
+  if (volumeDownButton.isPressed()) {
+    Serial.println(F("Volume Down"));
+    mp3facade.decreaseVolume();
+  }
 }
 
 void handleNewCard() {
@@ -412,8 +413,8 @@ int voiceMenu(int numberOfOptions, int startMessage, int messageOffset,
     mp3.playMp3FolderTrack(startMessage);
   do {
     pauseButton.read();
-    upButton.read();
-    downButton.read();
+    nextButton.read();
+    prevButton.read();
     mp3.loop();
     if (pauseButton.wasPressed()) {
       if (returnValue != 0)
@@ -421,7 +422,7 @@ int voiceMenu(int numberOfOptions, int startMessage, int messageOffset,
       delay(1000);
     }
 
-    if (upButton.pressedFor(LONG_PRESS)) {
+    if (nextButton.pressedFor(LONG_PRESS)) {
       returnValue = min(returnValue + 10, numberOfOptions);
       mp3.playMp3FolderTrack(messageOffset + returnValue);
       delay(1000);
@@ -434,9 +435,9 @@ int voiceMenu(int numberOfOptions, int startMessage, int messageOffset,
         else
           mp3.playFolderTrack(previewFromFolder, returnValue);
       }
-      ignoreUpButton = true;
-    } else if (upButton.wasReleased()) {
-      if (!ignoreUpButton) {
+      ignoreNextButton = true;
+    } else if (nextButton.wasReleased()) {
+      if (!ignoreNextButton) {
         returnValue = min(returnValue + 1, numberOfOptions);
         mp3.playMp3FolderTrack(messageOffset + returnValue);
         delay(1000);
@@ -450,10 +451,10 @@ int voiceMenu(int numberOfOptions, int startMessage, int messageOffset,
             mp3.playFolderTrack(previewFromFolder, returnValue);
         }
       } else
-        ignoreUpButton = false;
+        ignoreNextButton = false;
     }
 
-    if (downButton.pressedFor(LONG_PRESS)) {
+    if (prevButton.pressedFor(LONG_PRESS)) {
       returnValue = max(returnValue - 10, 1);
       mp3.playMp3FolderTrack(messageOffset + returnValue);
       delay(1000);
@@ -466,9 +467,9 @@ int voiceMenu(int numberOfOptions, int startMessage, int messageOffset,
         else
           mp3.playFolderTrack(previewFromFolder, returnValue);
       }
-      ignoreDownButton = true;
-    } else if (downButton.wasReleased()) {
-      if (!ignoreDownButton) {
+      ignorePrevButton = true;
+    } else if (prevButton.wasReleased()) {
+      if (!ignorePrevButton) {
         returnValue = max(returnValue - 1, 1);
         mp3.playMp3FolderTrack(messageOffset + returnValue);
         delay(1000);
@@ -482,7 +483,7 @@ int voiceMenu(int numberOfOptions, int startMessage, int messageOffset,
             mp3.playFolderTrack(previewFromFolder, returnValue);
         }
       } else
-        ignoreDownButton = false;
+        ignorePrevButton = false;
     }
   } while (true);
 }
@@ -490,10 +491,10 @@ int voiceMenu(int numberOfOptions, int startMessage, int messageOffset,
 void resetCard() {
   do {
     pauseButton.read();
-    upButton.read();
-    downButton.read();
+    nextButton.read();
+    prevButton.read();
 
-    if (upButton.wasReleased() || downButton.wasReleased()) {
+    if (nextButton.wasReleased() || prevButton.wasReleased()) {
       Serial.print(F("Abgebrochen!"));
       mp3.playMp3FolderTrack(802);
       return;
